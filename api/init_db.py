@@ -246,9 +246,12 @@ def seed_products():
             text_to_embed = f"{product['name']} {product['category']} {product['features']}"
             embedding = model.encode(text_to_embed).tolist()
 
+            # Convert embedding to PostgreSQL vector format
+            embedding_str = "[" + ",".join(str(x) for x in embedding) + "]"
+
             cursor.execute("""
                 INSERT INTO products (name, category, price, cost, margin_floor, features, competitor, embedding)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s::vector)
             """, (
                 product["name"],
                 product["category"],
@@ -257,7 +260,7 @@ def seed_products():
                 product["margin_floor"],
                 product["features"],
                 product["competitor"],
-                embedding,
+                embedding_str,
             ))
 
         conn.commit()

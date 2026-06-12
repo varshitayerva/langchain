@@ -113,10 +113,13 @@ class Database:
                     # Generate embedding
                     embedding = self.embedding_model.encode(content).tolist()
 
+                    # Convert embedding to PostgreSQL vector format
+                    embedding_str = "[" + ",".join(str(x) for x in embedding) + "]"
+
                     cursor.execute("""
                         INSERT INTO policies (section_title, content, embedding, filename)
-                        VALUES (%s, %s, %s, %s)
-                    """, (title, content, embedding, filename))
+                        VALUES (%s, %s, %s::vector, %s)
+                    """, (title, content, embedding_str, filename))
 
                 conn.commit()
                 cursor.close()

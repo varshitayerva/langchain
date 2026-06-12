@@ -12,10 +12,18 @@ import json
 from datetime import datetime
 from typing import Optional, Dict, Any
 from pathlib import Path
+from io import BytesIO
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# PDF support
+try:
+    from PyPDF2 import PdfReader
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
 
 # Import database and RAG
 try:
@@ -100,10 +108,34 @@ async def upload_policy(file: UploadFile = File(...)):
     try:
         # Read file content
         content = await file.read()
-        text_content = content.decode('utf-8')
+        filename = file.filename or "policy"
+
+        # Check if PDF
+        if filename.lower().endswith('.pdf') and PDF_AVAILABLE:
+            try:
+                pdf_reader = PdfReader(BytesIO(content))
+                text_content = ""
+                for page in pdf_reader.pages:
+                    text_content += page.extract_text() + "\n"
+            except Exception as e:
+                # Fallback: treat as text
+                text_content = content.decode('utf-8', errors='ignore')
+        else:
+            # Try to decode text files with different encodings
+            text_content = None
+            for encoding in ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']:
+                try:
+                    text_content = content.decode(encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+
+            # If still can't decode, use UTF-8 with error handling
+            if text_content is None:
+                text_content = content.decode('utf-8', errors='ignore')
 
         # Parse sections (simple split by common headers)
-        sections = parse_policy_document(text_content, file.filename)
+        sections = parse_policy_document(text_content, filename)
 
         # Store in database if available
         if DB_AVAILABLE and database:
