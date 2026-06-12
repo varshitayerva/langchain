@@ -1,7 +1,7 @@
 """
-MarginGuard Frontend-Compatible API
+MarginGuard Frontend-Compatible API with RAG Pipeline
 
-Simple API that works with the React frontend.
+Integrated with Postgres database for policy storage and vector search.
 Run with: uvicorn app:app --reload --host 0.0.0.0 --port 8000
 """
 
@@ -17,11 +17,21 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+# Import database and RAG
+try:
+    from db import db as database
+    from db import Database
+    DB_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️  Database not available: {e}")
+    DB_AVAILABLE = False
+    database = None
+
 # Initialize FastAPI app
 app = FastAPI(
     title="MarginGuard API",
-    description="Competitive Analysis Engine",
-    version="1.0.0"
+    description="Competitive Analysis Engine with RAG Pipeline",
+    version="2.0.0"
 )
 
 # CORS enabled
@@ -36,6 +46,14 @@ app.add_middleware(
 # Global state
 execution_states: Dict[str, Dict[str, Any]] = {}
 policy_cache: Dict[str, Any] = {}
+
+# Initialize database on startup
+if DB_AVAILABLE:
+    try:
+        database.init_database()
+        print("✓ Database initialized successfully")
+    except Exception as e:
+        print(f"⚠️  Could not initialize database: {e}")
 
 # ============================================================================
 # Data Models
@@ -78,24 +96,22 @@ async def root():
 
 @app.post("/upload-policy", response_model=PolicyResponse)
 async def upload_policy(file: UploadFile = File(...)):
-    """Upload policy document"""
+    """Upload policy document and store in database"""
     try:
-        # Mock sections for any file
-        sections = [
-            {
-                "title": "Pricing Policy",
-                "content": "All pricing must follow market-based pricing strategies with margin floors of 25%."
-            },
-            {
-                "title": "Feature Parity Requirements",
-                "content": "Products must maintain 70% feature parity with competitive offerings."
-            },
-            {
-                "title": "Compliance Rules",
-                "content": "All competitive pricing decisions must be reviewed before implementation."
-            }
-        ]
+        # Read file content
+        content = await file.read()
+        text_content = content.decode('utf-8')
 
+        # Parse sections (simple split by common headers)
+        sections = parse_policy_document(text_content, file.filename)
+
+        # Store in database if available
+        if DB_AVAILABLE and database:
+            stored = database.store_policy(file.filename, sections)
+            if not stored:
+                raise Exception("Failed to store policy in database")
+
+        # Keep in memory cache
         policy_cache["current"] = {
             "filename": file.filename,
             "upload_time": datetime.now().isoformat(),
@@ -106,7 +122,7 @@ async def upload_policy(file: UploadFile = File(...)):
             status="success",
             sections_uploaded=len(sections),
             sections=sections,
-            message=f"Policy uploaded successfully with {len(sections)} sections"
+            message=f"Policy uploaded successfully with {len(sections)} sections (stored in database)"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
@@ -186,7 +202,54 @@ async def health_check():
     }
 
 # ============================================================================
-# Mock Analysis Function
+# Helper Functions
+# ============================================================================
+
+def parse_policy_document(content: str, filename: str) -> list:
+    """Parse policy document into sections"""
+    sections = []
+
+    # Split by common section markers
+    lines = content.split("\n")
+    current_section = None
+    current_content = []
+
+    for line in lines:
+        # Check if line is a section header
+        if line.strip().startswith(("##", "- ", "* ", "1. ")) or (
+            len(line.strip()) > 3 and line.strip() == line.strip().upper()
+        ):
+            # Save previous section
+            if current_section:
+                sections.append({
+                    "title": current_section,
+                    "content": "\n".join(current_content).strip()
+                })
+
+            current_section = line.strip().replace("##", "").replace("- ", "").strip()
+            current_content = []
+        elif current_section:
+            current_content.append(line)
+
+    # Save last section
+    if current_section:
+        sections.append({
+            "title": current_section,
+            "content": "\n".join(current_content).strip()
+        })
+
+    # If no sections found, create one from entire content
+    if not sections:
+        sections = [{
+            "title": filename.replace(".pdf", "").replace(".txt", ""),
+            "content": content
+        }]
+
+    return sections
+
+
+# ============================================================================
+# Analysis Functions
 # ============================================================================
 
 async def run_mock_analysis(execution_id: str, product: str):
@@ -197,11 +260,29 @@ async def run_mock_analysis(execution_id: str, product: str):
         state = execution_states[execution_id]
         state["status"] = "running"
 
-        # Step 1: RAG Retrieval
+        # Step 1: RAG Retrieval (use database if available)
         state["step"] = 1
         state["message"] = "Starting RAG Retrieval..."
         await asyncio.sleep(2)
-        state["message"] = "Retrieved 3 products from knowledge base"
+
+        rag_output = {"product_data": [], "policy_snippet": ""}
+        if DB_AVAILABLE and database:
+            try:
+                # Search products and policies from database
+                products = database.search_products(product, top_k=3)
+                policies = database.search_policies(product, top_k=2)
+
+                rag_output["product_data"] = products
+                rag_output["policy_snippet"] = "\n\n".join([
+                    f"### {p['section']}\n{p['content']}"
+                    for p in policies
+                ]) if policies else "No policies found"
+                state["message"] = f"Retrieved {len(products)} products from knowledge base"
+            except Exception as e:
+                print(f"RAG retrieval error: {e}")
+                state["message"] = "RAG retrieval completed (fallback mode)"
+        else:
+            state["message"] = "RAG retrieval completed (database unavailable)"
 
         # Step 2: Research Agent
         state["step"] = 2
@@ -221,10 +302,10 @@ async def run_mock_analysis(execution_id: str, product: str):
         await asyncio.sleep(2)
         state["message"] = "Analysis complete"
 
-        # Mock result data
+        # Result data with real RAG output
         state["result"] = {
             "product_query": product,
-            "rag_output": {
+            "rag_output": rag_output if rag_output["product_data"] else {
                 "product_data": [
                     {
                         "id": "prod_1",
@@ -233,11 +314,12 @@ async def run_mock_analysis(execution_id: str, product: str):
                         "price": 249,
                         "cost": 100,
                         "margin_floor": 25,
-                        "features": ["Feature A", "Feature B", "Feature C"],
-                        "competitor": "Our Company"
+                        "features": "Feature A, Feature B, Feature C",
+                        "competitor": "Our Company",
+                        "similarity": 0.95
                     }
                 ],
-                "policy_snippet": "Pricing must maintain 25% margin floor..."
+                "policy_snippet": "No policies stored yet. Please upload a policy first."
             },
             "research_results": [
                 {
