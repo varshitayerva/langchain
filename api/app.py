@@ -23,7 +23,7 @@ try:
     from db import Database
     DB_AVAILABLE = True
 except Exception as e:
-    print(f"⚠️  Database not available: {e}")
+    print(f"[WARN] Database not available: {e}")
     DB_AVAILABLE = False
     database = None
 
@@ -51,9 +51,9 @@ policy_cache: Dict[str, Any] = {}
 if DB_AVAILABLE:
     try:
         database.init_database()
-        print("✓ Database initialized successfully")
+        print("[OK] Database initialized successfully")
     except Exception as e:
-        print(f"⚠️  Could not initialize database: {e}")
+        print(f"[WARN] Could not initialize database: {e}")
 
 # ============================================================================
 # Data Models

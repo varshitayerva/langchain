@@ -15,14 +15,15 @@ Usage:
 import psycopg2
 from psycopg2 import sql
 import sys
+import time
 from datetime import datetime
 
 # Configuration
 DB_HOST = "localhost"
 DB_PORT = 5432
 DB_USER = "postgres"
-DB_PASSWORD = "postgres"  # Change this to your postgres password
-TARGET_DB = "marginGuard"
+DB_PASSWORD = "varsh"
+TARGET_DB = "marginguard"
 
 # Sample products for seeding
 SEED_PRODUCTS = [
@@ -109,6 +110,9 @@ def create_database():
         return True
 
     except Exception as e:
+        if "already exists" in str(e).lower():
+            log(f"Database '{TARGET_DB}' already exists", "SKIP")
+            return True
         log(f"Error creating database: {e}", "ERROR")
         return False
 
@@ -269,9 +273,9 @@ def seed_products():
 
 
 def verify_connection():
-    """Verify database connection"""
+    """Verify PostgreSQL is running"""
     try:
-        conn = connect_postgres(TARGET_DB)
+        conn = connect_postgres("postgres")
         if not conn:
             return False
 
@@ -297,40 +301,42 @@ def main():
     # Check PostgreSQL connection
     log("Checking PostgreSQL connection...", "INFO")
     if not verify_connection():
-        print("\n❌ PostgreSQL is not running or not accessible")
+        print("\nERROR: PostgreSQL is not running or not accessible")
         print("   Please start PostgreSQL and try again")
         sys.exit(1)
 
     # Initialize database
-    print("\n📦 Creating database...")
+    print("\nCreating database...")
     if not create_database():
-        print("\n❌ Failed to create database")
+        print("\nERROR: Failed to create database")
         sys.exit(1)
 
+    # Wait for database to be available
+    time.sleep(1)
+
     # Enable pgvector
-    print("\n🔌 Enabling pgvector extension...")
+    print("\nEnabling pgvector extension...")
     if not enable_pgvector():
-        print("\n⚠️  Could not enable pgvector (may already be enabled)")
+        print("\nWARNING: Could not enable pgvector (may already be enabled)")
 
     # Create tables
-    print("\n📋 Creating tables...")
+    print("\nCreating tables...")
     if not create_tables():
-        print("\n❌ Failed to create tables")
+        print("\nERROR: Failed to create tables")
         sys.exit(1)
 
     # Seed products
-    print("\n🌱 Seeding sample data...")
+    print("\nSeeding sample data...")
     if not seed_products():
-        print("\n⚠️  Failed to seed products (continuing anyway)")
+        print("\nWARNING: Failed to seed products (continuing anyway)")
 
     print("\n" + "=" * 60)
-    print("✅ Database initialization complete!")
+    print("SUCCESS: Database initialization complete!")
     print("=" * 60)
     print("\nNext steps:")
-    print("1. Update api/.env with your database credentials")
-    print("2. Run: python app.py")
-    print("3. Upload a policy in the frontend")
-    print("4. Analyze a product - results use your real policies!\n")
+    print("1. Run: python app.py")
+    print("2. Upload a policy in the frontend")
+    print("3. Analyze a product - results use your real policies!\n")
 
 
 if __name__ == "__main__":
