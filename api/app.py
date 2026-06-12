@@ -175,7 +175,8 @@ async def start_analysis(product: str, background_tasks: BackgroundTasks) -> Ana
         "step": 0,
         "message": "Initializing analysis...",
         "product": product,
-        "start_time": datetime.now().isoformat()
+        "start_time": datetime.now().isoformat(),
+        "result": None  # Will be populated by run_mock_analysis
     }
 
     # Schedule background analysis
