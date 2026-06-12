@@ -103,29 +103,42 @@ class Database:
     def store_policy(self, filename: str, sections: List[Dict[str, str]]) -> bool:
         """Store uploaded policy sections in database"""
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
+            conn = psycopg2.connect(**self.db_config)
+            cursor = conn.cursor()
 
-                for section in sections:
-                    title = section.get("title", "Untitled")
+            stored_count = 0
+            for section in sections:
+                try:
+                    title = section.get("title", "Untitled")[:255]  # Limit to column size
                     content = section.get("content", "")
+
+                    # Skip empty sections
+                    if not content.strip():
+                        continue
 
                     # Generate embedding
                     embedding = self.embedding_model.encode(content).tolist()
 
-                    # Convert embedding to PostgreSQL vector format
-                    embedding_str = "[" + ",".join(str(x) for x in embedding) + "]"
-
+                    # Insert
                     cursor.execute("""
                         INSERT INTO policies (section_title, content, embedding, filename)
-                        VALUES (%s, %s, %s::vector, %s)
-                    """, (title, content, embedding_str, filename))
+                        VALUES (%s, %s, %s, %s)
+                    """, (title, content, embedding, filename))
 
-                conn.commit()
-                cursor.close()
-                return True
+                    stored_count += 1
+                except Exception as sec_error:
+                    print(f"Error storing section '{section.get('title', 'Unknown')}': {sec_error}")
+                    continue
+
+            conn.commit()
+            cursor.close()
+            conn.close()
+
+            print(f"Stored {stored_count} policy sections")
+            return stored_count > 0
+
         except Exception as e:
-            print(f"Error storing policy: {e}")
+            print(f"Error storing policy: {type(e).__name__}: {e}")
             return False
 
     def search_policies(self, query: str, top_k: int = 2) -> List[Dict[str, Any]]:

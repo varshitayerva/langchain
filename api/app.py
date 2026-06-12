@@ -139,13 +139,13 @@ async def upload_policy(file: UploadFile = File(...)):
 
         # Store in database if available
         if DB_AVAILABLE and database:
-            stored = database.store_policy(file.filename, sections)
+            stored = database.store_policy(filename, sections)
             if not stored:
                 raise Exception("Failed to store policy in database")
 
         # Keep in memory cache
         policy_cache["current"] = {
-            "filename": file.filename,
+            "filename": filename,
             "upload_time": datetime.now().isoformat(),
             "sections": sections
         }
