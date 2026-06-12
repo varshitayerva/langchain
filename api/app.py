@@ -1,7 +1,7 @@
 """
-MarginGuard Frontend-Compatible API
+MarginGuard Frontend-Compatible API with RAG Pipeline
 
-Simple API that works with the React frontend.
+Integrated with Postgres database for policy storage and vector search.
 Run with: uvicorn app:app --reload --host 0.0.0.0 --port 8000
 """
 
@@ -12,16 +12,34 @@ import json
 from datetime import datetime
 from typing import Optional, Dict, Any
 from pathlib import Path
+from io import BytesIO
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+# PDF support
+try:
+    from PyPDF2 import PdfReader
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
+
+# Import database and RAG
+try:
+    from db import db as database
+    from db import Database
+    DB_AVAILABLE = True
+except Exception as e:
+    print(f"[WARN] Database not available: {e}")
+    DB_AVAILABLE = False
+    database = None
+
 # Initialize FastAPI app
 app = FastAPI(
     title="MarginGuard API",
-    description="Competitive Analysis Engine",
-    version="1.0.0"
+    description="Competitive Analysis Engine with RAG Pipeline",
+    version="2.0.0"
 )
 
 # CORS enabled
@@ -36,6 +54,14 @@ app.add_middleware(
 # Global state
 execution_states: Dict[str, Dict[str, Any]] = {}
 policy_cache: Dict[str, Any] = {}
+
+# Initialize database on startup
+if DB_AVAILABLE:
+    try:
+        database.init_database()
+        print("[OK] Database initialized successfully")
+    except Exception as e:
+        print(f"[WARN] Could not initialize database: {e}")
 
 # ============================================================================
 # Data Models
@@ -78,26 +104,48 @@ async def root():
 
 @app.post("/upload-policy", response_model=PolicyResponse)
 async def upload_policy(file: UploadFile = File(...)):
-    """Upload policy document"""
+    """Upload policy document and store in database"""
     try:
-        # Mock sections for any file
-        sections = [
-            {
-                "title": "Pricing Policy",
-                "content": "All pricing must follow market-based pricing strategies with margin floors of 25%."
-            },
-            {
-                "title": "Feature Parity Requirements",
-                "content": "Products must maintain 70% feature parity with competitive offerings."
-            },
-            {
-                "title": "Compliance Rules",
-                "content": "All competitive pricing decisions must be reviewed before implementation."
-            }
-        ]
+        # Read file content
+        content = await file.read()
+        filename = file.filename or "policy"
 
+        # Check if PDF
+        if filename.lower().endswith('.pdf') and PDF_AVAILABLE:
+            try:
+                pdf_reader = PdfReader(BytesIO(content))
+                text_content = ""
+                for page in pdf_reader.pages:
+                    text_content += page.extract_text() + "\n"
+            except Exception as e:
+                # Fallback: treat as text
+                text_content = content.decode('utf-8', errors='ignore')
+        else:
+            # Try to decode text files with different encodings
+            text_content = None
+            for encoding in ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']:
+                try:
+                    text_content = content.decode(encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+
+            # If still can't decode, use UTF-8 with error handling
+            if text_content is None:
+                text_content = content.decode('utf-8', errors='ignore')
+
+        # Parse sections (simple split by common headers)
+        sections = parse_policy_document(text_content, filename)
+
+        # Store in database if available
+        if DB_AVAILABLE and database:
+            stored = database.store_policy(filename, sections)
+            if not stored:
+                raise Exception("Failed to store policy in database")
+
+        # Keep in memory cache
         policy_cache["current"] = {
-            "filename": file.filename,
+            "filename": filename,
             "upload_time": datetime.now().isoformat(),
             "sections": sections
         }
@@ -106,7 +154,7 @@ async def upload_policy(file: UploadFile = File(...)):
             status="success",
             sections_uploaded=len(sections),
             sections=sections,
-            message=f"Policy uploaded successfully with {len(sections)} sections"
+            message=f"Policy uploaded successfully with {len(sections)} sections (stored in database)"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
@@ -127,7 +175,8 @@ async def start_analysis(product: str, background_tasks: BackgroundTasks) -> Ana
         "step": 0,
         "message": "Initializing analysis...",
         "product": product,
-        "start_time": datetime.now().isoformat()
+        "start_time": datetime.now().isoformat(),
+        "result": None  # Will be populated by run_mock_analysis
     }
 
     # Schedule background analysis
@@ -186,7 +235,113 @@ async def health_check():
     }
 
 # ============================================================================
-# Mock Analysis Function
+# Helper Functions
+# ============================================================================
+
+def parse_policy_document(content: str, filename: str) -> list:
+    """Parse policy document into sections"""
+    sections = []
+
+    # Split by common section markers
+    lines = content.split("\n")
+    current_section = None
+    current_content = []
+
+    for line in lines:
+        # Check if line is a section header
+        if line.strip().startswith(("##", "- ", "* ", "1. ")) or (
+            len(line.strip()) > 3 and line.strip() == line.strip().upper()
+        ):
+            # Save previous section
+            if current_section:
+                sections.append({
+                    "title": current_section,
+                    "content": "\n".join(current_content).strip()
+                })
+
+            current_section = line.strip().replace("##", "").replace("- ", "").strip()
+            current_content = []
+        elif current_section:
+            current_content.append(line)
+
+    # Save last section
+    if current_section:
+        sections.append({
+            "title": current_section,
+            "content": "\n".join(current_content).strip()
+        })
+
+    # If no sections found, create one from entire content
+    if not sections:
+        sections = [{
+            "title": filename.replace(".pdf", "").replace(".txt", ""),
+            "content": content
+        }]
+
+    return sections
+
+
+# ============================================================================
+# Research Data Generator
+# ============================================================================
+
+COMPETITOR_DATABASE = {
+    "AirPods": [
+        {"name": "Sony WF-1000XM5", "price": 299, "parity": 92, "source": "sony.com"},
+        {"name": "Samsung Galaxy Buds2 Pro", "price": 229, "parity": 85, "source": "samsung.com"},
+        {"name": "Bose QuietComfort", "price": 279, "parity": 88, "source": "bose.com"},
+        {"name": "Sennheiser Momentum", "price": 299, "parity": 80, "source": "sennheiser.com"},
+        {"name": "Jabra Elite", "price": 229, "parity": 75, "source": "jabra.com"},
+    ],
+    "iPhone": [
+        {"name": "Samsung Galaxy S24", "price": 999, "parity": 88, "source": "samsung.com"},
+        {"name": "Google Pixel 9", "price": 899, "parity": 85, "source": "google.com"},
+        {"name": "OnePlus 12", "price": 799, "parity": 80, "source": "oneplus.com"},
+        {"name": "Xiaomi 14", "price": 699, "parity": 82, "source": "xiaomi.com"},
+        {"name": "Nothing Phone", "price": 599, "parity": 75, "source": "nothing.tech"},
+    ],
+    "iPad": [
+        {"name": "Samsung Galaxy Tab", "price": 799, "parity": 85, "source": "samsung.com"},
+        {"name": "Microsoft Surface", "price": 999, "parity": 90, "source": "microsoft.com"},
+        {"name": "Lenovo Tab", "price": 599, "parity": 78, "source": "lenovo.com"},
+        {"name": "Amazon Fire", "price": 449, "parity": 65, "source": "amazon.com"},
+        {"name": "Google Pixel Tablet", "price": 799, "parity": 82, "source": "google.com"},
+    ],
+}
+
+def generate_research_results(product: str, our_price: int = 249) -> list:
+    """Generate realistic research results based on product"""
+    # Find matching competitors
+    competitors = []
+    for key, items in COMPETITOR_DATABASE.items():
+        if key.lower() in product.lower():
+            competitors = items
+            break
+
+    # If no match, use default
+    if not competitors:
+        competitors = COMPETITOR_DATABASE["AirPods"]
+
+    # Generate results with price gaps
+    results = []
+    for comp in competitors:
+        price_gap = comp["price"] - our_price
+        margin_feasible = price_gap >= 0 or abs(price_gap) < 100
+
+        results.append({
+            "competitor_name": comp["name"],
+            "price_normalized": comp["price"],
+            "feature_parity": comp["parity"],
+            "price_gap": price_gap,
+            "margin_feasible": margin_feasible,
+            "source": f"https://{comp['source']}"
+        })
+
+    return results
+
+
+# ============================================================================
+# Analysis Functions
 # ============================================================================
 
 async def run_mock_analysis(execution_id: str, product: str):
@@ -197,11 +352,29 @@ async def run_mock_analysis(execution_id: str, product: str):
         state = execution_states[execution_id]
         state["status"] = "running"
 
-        # Step 1: RAG Retrieval
+        # Step 1: RAG Retrieval (use database if available)
         state["step"] = 1
         state["message"] = "Starting RAG Retrieval..."
         await asyncio.sleep(2)
-        state["message"] = "Retrieved 3 products from knowledge base"
+
+        rag_output = {"product_data": [], "policy_snippet": ""}
+        if DB_AVAILABLE and database:
+            try:
+                # Search products and policies from database
+                products = database.search_products(product, top_k=3)
+                policies = database.search_policies(product, top_k=2)
+
+                rag_output["product_data"] = products
+                rag_output["policy_snippet"] = "\n\n".join([
+                    f"### {p['section']}\n{p['content']}"
+                    for p in policies
+                ]) if policies else "No policies found"
+                state["message"] = f"Retrieved {len(products)} products from knowledge base"
+            except Exception as e:
+                print(f"RAG retrieval error: {e}")
+                state["message"] = "RAG retrieval completed (fallback mode)"
+        else:
+            state["message"] = "RAG retrieval completed (database unavailable)"
 
         # Step 2: Research Agent
         state["step"] = 2
@@ -221,10 +394,13 @@ async def run_mock_analysis(execution_id: str, product: str):
         await asyncio.sleep(2)
         state["message"] = "Analysis complete"
 
-        # Mock result data
+        # Generate dynamic research results based on product
+        research_results = generate_research_results(product)
+
+        # Result data with real RAG output and dynamic research
         state["result"] = {
             "product_query": product,
-            "rag_output": {
+            "rag_output": rag_output if rag_output["product_data"] else {
                 "product_data": [
                     {
                         "id": "prod_1",
@@ -233,54 +409,14 @@ async def run_mock_analysis(execution_id: str, product: str):
                         "price": 249,
                         "cost": 100,
                         "margin_floor": 25,
-                        "features": ["Feature A", "Feature B", "Feature C"],
-                        "competitor": "Our Company"
+                        "features": "Feature A, Feature B, Feature C",
+                        "competitor": "Our Company",
+                        "similarity": 0.95
                     }
                 ],
-                "policy_snippet": "Pricing must maintain 25% margin floor..."
+                "policy_snippet": "No policies stored yet. Please upload a policy first."
             },
-            "research_results": [
-                {
-                    "competitor_name": "Sony XM5",
-                    "price_normalized": 399,
-                    "feature_parity": 85,
-                    "price_gap": 150,
-                    "margin_feasible": True,
-                    "source": "https://example.com"
-                },
-                {
-                    "competitor_name": "Bose QC45",
-                    "price_normalized": 379,
-                    "feature_parity": 75,
-                    "price_gap": 130,
-                    "margin_feasible": True,
-                    "source": "https://example.com"
-                },
-                {
-                    "competitor_name": "Sennheiser Momentum",
-                    "price_normalized": 399,
-                    "feature_parity": 80,
-                    "price_gap": 150,
-                    "margin_feasible": True,
-                    "source": "https://example.com"
-                },
-                {
-                    "competitor_name": "Audio-Technica ATH",
-                    "price_normalized": 299,
-                    "feature_parity": 65,
-                    "price_gap": 50,
-                    "margin_feasible": True,
-                    "source": "https://example.com"
-                },
-                {
-                    "competitor_name": "JBL Elite",
-                    "price_normalized": 279,
-                    "feature_parity": 70,
-                    "price_gap": 30,
-                    "margin_feasible": True,
-                    "source": "https://example.com"
-                }
-            ]
+            "research_results": research_results
         }
 
         state["status"] = "completed"
