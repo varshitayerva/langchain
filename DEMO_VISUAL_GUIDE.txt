@@ -1,0 +1,264 @@
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                    HITL DEMO - VISUAL GUIDE                                   ║
+║                        MarginGuard AI                                          ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE 1: INITIAL STATE (http://localhost:3000)                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    ╔═══════════════════════════════════════════════════════════════════╗
+    ║                                                                   ║
+    ║              MARGINGUARD - Competitive Analysis Engine           ║
+    ║                                                                   ║
+    ║  Left Panel:                      │  Right Panel:               ║
+    ║  ┌─────────────────────────────┐  │  Welcome to MarginGuard     ║
+    ║  │ Company Policy Document     │  │                             ║
+    ║  │ Policy Loaded: 3 sections ✓ │  │  1. Upload policy PDF ✓    ║
+    ║  │ [Pricing Policy]            │  │  2. Enter product name      ║
+    ║  │ [Compliance Reqs]           │  │  3. Review results          ║
+    ║  │ [Market Guidelines]         │  │                             ║
+    ║  │                             │  │                             ║
+    ║  │ Product Query:              │  │                             ║
+    ║  │ ┌─────────────────────────┐ │  │                             ║
+    ║  │ │ iPhone 15               │ │  │                             ║
+    ║  │ └─────────────────────────┘ │  │                             ║
+    ║  │ [Analyze Product]           │  │                             ║
+    ║  │ Recent: iPhone 15           │  │                             ║
+    ║  └─────────────────────────────┘  │                             ║
+    ║                                    │                             ║
+    ╚════════════════════════════════════════════════════════════════════╝
+
+    Action: Click "Analyze Product"
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE 2: ANALYSIS RUNNING (30-60 seconds)                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    ╔═══════════════════════════════════════════════════════════════════╗
+    ║                                                                   ║
+    ║              MARGINGUARD - Competitive Analysis Engine           ║
+    ║                                                                   ║
+    ║  Left Panel:                      │  Right Panel:               ║
+    ║  ┌─────────────────────────────┐  │  ┌─────────────────────┐    ║
+    ║  │ Company Policy Document     │  │  │  ⟳ Analyzing...     │    ║
+    ║  │ Policy Loaded: 3 sections ✓ │  │  │    Step 1/4         │    ║
+    ║  │ [Pricing Policy]            │  │  │  (spinner rotating) │    ║
+    ║  │ [Compliance Reqs]           │  │  │                     │    ║
+    ║  │ [Market Guidelines]         │  │  └─────────────────────┘    ║
+    ║  │                             │  │                             ║
+    ║  │ ✓ Analysis Logs:            │  │                             ║
+    ║  │ [14:32:15] Starting...      │  │                             ║
+    ║  │ [14:32:15] ID: xyz123      │  │                             ║
+    ║  │ [14:32:16] ○ RAG Retrieval │  │                             ║
+    ║  │ [14:32:20] ⟳ Synthesis     │  │                             ║
+    ║  │ [14:32:30] ⟳ Review Agent  │  │                             ║
+    ║  │ [14:32:31] ❌ Rejected      │  │                             ║
+    ║  │ [14:32:32] ⟳ Synthesis     │  │                             ║
+    ║  │ [14:32:40] ⟳ Review Agent  │  │                             ║
+    ║  │ [14:32:41] ❌ Rejected      │  │                             ║
+    ║  │ [14:32:42] ⟳ Synthesis     │  │                             ║
+    ║  │ [14:32:50] ⟳ Review Agent  │  │                             ║
+    ║  │ [14:32:51] ❌ Rejected      │  │                             ║
+    ║  │ [14:32:52] ⏸ Paused...      │  │                             ║
+    ║  └─────────────────────────────┘  │                             ║
+    ║                                    │                             ║
+    ╚════════════════════════════════════════════════════════════════════╝
+
+    Backend Terminal Shows:
+    ┌─────────────────────────────────────────────────────────┐
+    │ [SYNTHESIS] Report generated (attempt 1/4)              │
+    │ [REVIEWER] ❌ [REJECTED] [HITL DEMO] Price point...     │
+    │                                                          │
+    │ [SYNTHESIS] Report regenerated with feedback (attempt 2/4) │
+    │ [REVIEWER] ❌ [REJECTED] [HITL DEMO] Price point...     │
+    │                                                          │
+    │ [SYNTHESIS] Report regenerated with feedback (attempt 3/4) │
+    │ [REVIEWER] ❌ [REJECTED] [HITL DEMO] Price point...     │
+    │                                                          │
+    │ ⏸ PAUSING FOR HUMAN REVIEW - Max retries (3) reached   │
+    └─────────────────────────────────────────────────────────┘
+
+    Waiting for: Modal to appear (~1-2 more seconds)
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE 3: HITL MODAL APPEARS (THIS IS THE KEY MOMENT!)                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    The spinner disappears! The modal appears!
+
+    ╔═══════════════════════════════════════════════════════════════════╗
+    ║                                                                   ║
+    ║              MARGINGUARD - Competitive Analysis Engine           ║
+    ║                                                                   ║
+    ║     ┌────────────────────────────────────────────────────────┐   ║
+    ║     │ ⏸ Human Review Required                                │   ║
+    ║     ├────────────────────────────────────────────────────────┤   ║
+    ║     │ The pricing report was rejected 3 times.              │   ║
+    ║     │ Please review and make a final decision.              │   ║
+    ║     │                                                        │   ║
+    ║     │ Status: rejected                                       │   ║
+    ║     │ Retries: 3/3                                          │   ║
+    ║     │                                                        │   ║
+    ║     │ Your Decision Notes:                                   │   ║
+    ║     │ ┌──────────────────────────────────────────────────┐  │   ║
+    ║     │ │ Approved by pricing team. Risk acceptable given  │  │   ║
+    ║     │ │ market conditions.                                │  │   ║
+    ║     │ └──────────────────────────────────────────────────┘  │   ║
+    ║     │                                                        │   ║
+    ║     │           [✓ Approve]    [✗ Reject]                   │   ║
+    ║     └────────────────────────────────────────────────────────┘   ║
+    ║     (Dark overlay behind modal)                              │   ║
+    ║                                                                   ║
+    ║  Left Panel:                      │  (content faded behind)     ║
+    ║  ┌─────────────────────────────┐  │                             ║
+    ║  │ (logs continue)             │  │                             ║
+    ║  │ ...                         │  │                             ║
+    ║  │ [14:32:52] ⏸ Paused...      │  │                             ║
+    ║  │ [14:32:53] Awaiting human   │  │                             ║
+    ║  │           review...         │  │                             ║
+    ║  └─────────────────────────────┘  │                             ║
+    ║                                    │                             ║
+    ╚════════════════════════════════════════════════════════════════════╝
+
+    Key Elements:
+    ✓ Spinner GONE (not spinning anymore)
+    ✓ Modal has ORANGE header (not invisible)
+    ✓ Shows "Retries: 3/3" (confirms 3 attempts)
+    ✓ Shows "Status: rejected" (clear why paused)
+    ✓ Textarea is focused and ready
+    ✓ Buttons are visible and clickable
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE 4: HUMAN DECISION                                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    Click [✓ Approve]
+
+    ╔═══════════════════════════════════════════════════════════════════╗
+    ║                                                                   ║
+    ║  Left Panel:                      │  Right Panel:               ║
+    ║  ┌─────────────────────────────┐  │  ⟳ Processing...            ║
+    ║  │ ✓ Analysis Logs:            │  │  (button shows "Processing")║
+    ║  │ ...                         │  │                             ║
+    ║  │ [14:32:52] ⏸ Paused...      │  │                             ║
+    ║  │ [14:32:53] Awaiting human   │  │                             ║
+    ║  │ [14:32:55] 🔄 Resuming...   │  │                             ║
+    ║  │ [14:32:55] Workflow resumed │  │                             ║
+    ║  │           with approval     │  │                             ║
+    ║  │ [14:32:58] ✓ Analysis       │  │                             ║
+    ║  │           Complete          │  │                             ║
+    ║  │ [14:32:59] Report ready for │  │                             ║
+    ║  │           implementation    │  │                             ║
+    ║  └─────────────────────────────┘  │                             ║
+    ║                                    │                             ║
+    ╚════════════════════════════════════════════════════════════════════╝
+
+    Backend Terminal Shows:
+    ┌─────────────────────────────────────────────────────────┐
+    │ POST /analyze/resume/xyz123 with human decision        │
+    │ [HITL] Human override: override_approve                │
+    │ [HITL] Decision: "Approved by pricing team. Risk..."   │
+    │ [HITL] Graph resumed from checkpoint                   │
+    │ [HITL] Workflow resumed and completed                  │
+    │                                                          │
+    │ [SUCCESS] Result file saved: xyz123.json                │
+    └─────────────────────────────────────────────────────────┘
+
+    Waiting for: Report to display (~1-2 seconds)
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE 5: FINAL REPORT DISPLAYED                                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    Modal disappears. Final report displays.
+
+    ╔═══════════════════════════════════════════════════════════════════╗
+    ║                                                                   ║
+    ║              MARGINGUARD - Competitive Analysis Engine           ║
+    ║                                                                   ║
+    ║  Left Panel:                      │  Right Panel:               ║
+    ║  ┌─────────────────────────────┐  │  ┌────────────────────────┐║
+    ║  │ ✓ Analysis Logs:            │  │  │ [Overview] [Competitors] ║
+    ║  │ [14:32:15] Starting...      │  │  │ [Charts] [Report]       ║
+    ║  │ [14:32:15] ID: xyz123      │  │  │                        ║
+    ║  │ ...                         │  │  │ Competitive Analysis   ║
+    ║  │ [14:32:52] ⏸ Paused...      │  │  │ Product: iPhone 15 Pro ║
+    ║  │ [14:32:53] Awaiting human   │  │  │                        ║
+    ║  │ [14:32:55] 🔄 Resuming...   │  │  │ Competitors Found: 2   ║
+    ║  │ [14:32:55] Workflow resumed │  │  │ Lowest Price: $799.00  ║
+    ║  │           with approval     │  │  │ Avg Feature Parity: 85%║
+    ║  │ [14:32:58] ✓ Analysis       │  │  │ Margin Feasible: 2/2   ║
+    ║  │           Complete          │  │  │                        ║
+    ║  │ [14:32:59] Report ready for │  │  │ [Approval Status]      ║
+    ║  │           implementation    │  │  │ ✓ APPROVED FOR ACTION  ║
+    ║  │ [14:33:00] ✓ Report         │  │  │                        ║
+    ║  │           Displayed         │  │  │ Approved by: Human     ║
+    ║  │                             │  │  │ Timestamp: 14:32:56    ║
+    ║  └─────────────────────────────┘  │  │ Notes: Approved by...  ║
+    ║                                    │  └────────────────────────┘║
+    ║                                    │                             ║
+    ╚════════════════════════════════════════════════════════════════════╝
+
+    ✓ Report displays
+    ✓ Shows approval status
+    ✓ Ready for implementation
+    ✓ Complete audit trail
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+                        DEMO SUMMARY FOR STAKEHOLDERS
+
+    What We Demonstrated:
+    ✓ Automatic retry loop (3 attempts with feedback)
+    ✓ Intelligent escalation (pause for human, not hard exit)
+    ✓ HITL modal (clear UI for decision)
+    ✓ Human override (decision with justification)
+    ✓ Workflow resume (checkpoint restores state)
+    ✓ Final report (approval logged and complete)
+
+    Key Metrics:
+    • Retries: 3 automatic attempts
+    • Wait time: ~45 seconds for 3 retries
+    • Modal appearance: ~1 second after pause
+    • Decision time: ~3 seconds to resume
+    • Total flow: ~2 minutes end-to-end
+
+    Comparison to Manual Process:
+    ❌ OLD: Email reviewer → Wait 1-2 hours → Manual tracking → Spreadsheet
+    ✅ NEW: Modal appears → Decision in 30 seconds → Auto-logged → Complete
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+                        QUICK DEMO CHECKLIST
+
+    Before Demo Starts:
+    ☐ Backend running (check terminal for "Application startup complete")
+    ☐ Frontend loaded (http://localhost:3000)
+    ☐ Policy uploaded ("Policy Loaded: 3 sections")
+    ☐ Product input shows "iPhone 15"
+    ☐ Backend terminal visible (for showing logs)
+
+    During Demo:
+    ☐ Click "Analyze Product"
+    ☐ Let analysis run (watch logs for rejections)
+    ☐ HITL modal appears (pause and let audience see it)
+    ☐ Read modal content aloud (retry count, status)
+    ☐ Type approval notes
+    ☐ Click [✓ Approve]
+    ☐ Final report displays
+    ☐ Point out approval status and timestamp
+
+    Demo Success = All checkboxes complete
+
+
+═══════════════════════════════════════════════════════════════════════════════

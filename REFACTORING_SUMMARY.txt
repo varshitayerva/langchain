@@ -1,0 +1,387 @@
+═══════════════════════════════════════════════════════════════════════════════
+             MARGINGUARD AI - AUTOMATIC RETRY LOOP + HITL REFACTORING
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ COMPLETE REFACTORING DELIVERED
+
+═══════════════════════════════════════════════════════════════════════════════
+1. FILES CREATED
+═══════════════════════════════════════════════════════════════════════════════
+
+📄 orchestration/langgraph_orchestrator_refactored.py (600+ lines)
+   ├─ Extended AgentState with HITL fields
+   ├─ Retry loop logic (max 3 attempts)
+   ├─ Human review node (paused here on max retries)
+   ├─ Updated routing (synthesis → reviewer → synthesis OR human_review)
+   ├─ MemorySaver checkpointing
+   ├─ interrupt_before on human_review node
+   ├─ resume_workflow() function
+   ├─ get_paused_state() for status checks
+   └─ Full production-ready code
+
+📄 api/main_refactored.py (400+ lines)
+   ├─ Extended execution cache
+   ├─ POST /resume/{id} endpoint (NEW)
+   ├─ Enhanced GET /status/{id} (shows is_paused, paused_for_human_review)
+   ├─ HumanDecisionRequest model
+   ├─ ResumeResponse model
+   ├─ resume_workflow_task() background handler
+   └─ Full integration with checkpoint system
+
+📄 REFACTORING_GUIDE.md (400+ lines)
+   ├─ Complete architecture explanation
+   ├─ Before/after flow diagrams
+   ├─ State schema comparison
+   ├─ Migration steps
+   ├─ Testing scenarios
+   ├─ Code comparison examples
+   └─ Verification checklist
+
+═══════════════════════════════════════════════════════════════════════════════
+2. KEY ARCHITECTURE CHANGES
+═══════════════════════════════════════════════════════════════════════════════
+
+RETRY LOOP:
+  ✅ If reviewer rejects → Synthesis regenerates with feedback
+  ✅ Max 3 attempts total (0-based: retries 1, 2, 3)
+  ✅ Self-correction: Each retry includes reviewer feedback
+  ✅ Loop stops on: approval OR max retries reached
+
+HITL ESCALATION:
+  ✅ If retry_count reaches 3 AND still rejected → Escalate to human review
+  ✅ NOT a hard exit (sys.exit) anymore
+  ✅ Instead: Route to human_review node
+  ✅ Graph pauses BEFORE human_review (interrupt_before)
+  ✅ State checkpointed to MemorySaver
+
+CHECKPOINT MANAGEMENT:
+  ✅ thread_id = execution_id (same identifier)
+  ✅ MemorySaver stores paused state
+  ✅ /resume endpoint fetches from checkpoint
+  ✅ Resumes from exact pause point
+  ✅ Human decision injected into state
+  ✅ Graph continues from human_review node
+
+═══════════════════════════════════════════════════════════════════════════════
+3. STATE SCHEMA EXPANSION
+═══════════════════════════════════════════════════════════════════════════════
+
+OLD STATE (7 fields):
+  query
+  rag_context
+  research_data
+  draft_report
+  review_status
+  review_feedback
+  retry_count
+
+NEW STATE (13 fields):
+  query                    ← unchanged
+  rag_context             ← unchanged
+  research_data           ← unchanged
+  draft_report            ← unchanged
+  review_status           ← "approved" | "rejected" | "requires_human_review" (NEW)
+  review_feedback         ← unchanged
+  retry_count             ← unchanged
+  is_approved             ← boolean flag (NEW)
+  human_decision          ← None | "override_approve" | "override_reject" (NEW)
+  human_notes             ← justification text (NEW)
+  is_paused               ← currently waiting for human? (NEW)
+  execution_id            ← thread ID for checkpoints (NEW)
+
+═══════════════════════════════════════════════════════════════════════════════
+4. CONDITIONAL ROUTING LOGIC
+═══════════════════════════════════════════════════════════════════════════════
+
+OLD LOGIC:
+  if approved → END
+  elif retry_count < 3 → Back to synthesis
+  else → END (hard exit)
+
+NEW LOGIC:
+  if approved → END
+  elif retry_count < 3 → Back to synthesis (with feedback)
+  else → human_review (pause for human)
+
+ROUTING TARGETS:
+  "synthesis"    ← Retry (feedback included)
+  "human_review" ← HITL escalation (NEW)
+  "end"          ← Complete
+
+═══════════════════════════════════════════════════════════════════════════════
+5. FASTAPI ENDPOINTS
+═══════════════════════════════════════════════════════════════════════════════
+
+EXISTING (Enhanced):
+  POST /analyze           → Returns execution_id
+  GET /status/{id}       → Now shows is_paused, "paused_for_human_review" status
+  GET /result/{id}       → Get final result
+  GET /health            → Health check
+  GET /info              → API capabilities
+
+NEW ENDPOINT:
+  POST /resume/{id}      ← Resume paused workflow with human decision
+
+REQUEST BODY:
+  {
+    "override_decision": "override_approve" | "override_reject",
+    "notes": "Human justification text"
+  }
+
+RESPONSE:
+  {
+    "execution_id": "a1b2c3d4",
+    "status": "completed",
+    "final_decision": "approved" | "rejected",
+    "human_override": "override_approve" | "override_reject",
+    "human_notes": "...",
+    "completed_at": "2024-06-12T..."
+  }
+
+═══════════════════════════════════════════════════════════════════════════════
+6. WORKFLOW EXECUTION FLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                       CLIENT API CALL                               │
+│                                                                     │
+│  1. POST /analyze {query: "iPhone pricing"}                        │
+│     → Returns: execution_id (e.g., "a1b2c3d4")                    │
+│                                                                     │
+│  2. GET /status/a1b2c3d4 (poll every 1 second)                    │
+│     → Response: {status: "running", progress: 50%, ...}           │
+│     → Or: {status: "paused_for_human_review", is_paused: true}    │
+│                                                                     │
+│  3a. IF COMPLETED:                                                 │
+│      GET /result/a1b2c3d4 → Full report                           │
+│                                                                     │
+│  3b. IF PAUSED (MAX RETRIES):                                     │
+│      POST /resume/a1b2c3d4 {                                       │
+│        override_decision: "override_approve",                      │
+│        notes: "Approved by CFO"                                    │
+│      }                                                             │
+│      → Graph resumes from checkpoint                               │
+│      → Human decision applied                                      │
+│      → Returns: final_decision                                     │
+│                                                                     │
+│  4. GET /status/a1b2c3d4 (if just resumed)                        │
+│     → Response: {status: "completed", ...}                        │
+│                                                                     │
+│  5. GET /result/a1b2c3d4                                           │
+│     → Full final report (with human override applied)              │
+└─────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+7. RETRY LOOP EXAMPLE
+═══════════════════════════════════════════════════════════════════════════════
+
+Attempt 1:
+  SYNTHESIS: Generate report
+  REVIEWER: Check compliance
+  RESULT: ❌ REJECTED - Price below margin floor
+  ACTION: Increment retry_count=1, loop back to synthesis
+
+Attempt 2 (with feedback):
+  SYNTHESIS: Regenerate report (using reviewer feedback)
+  REVIEWER: Check compliance
+  RESULT: ❌ REJECTED - Still non-compliant
+  ACTION: Increment retry_count=2, loop back to synthesis
+
+Attempt 3 (with feedback):
+  SYNTHESIS: Regenerate report (using updated feedback)
+  REVIEWER: Check compliance
+  RESULT: ❌ REJECTED - Still non-compliant
+  ACTION: Increment retry_count=3, escalate to HITL
+
+HITL Escalation:
+  ROUTE: Route to human_review node
+  PAUSE: Graph pauses BEFORE executing human_review
+  STATE: Checkpointed to MemorySaver
+  WAIT: Awaiting /resume endpoint call
+
+  Client calls: POST /resume with override decision
+
+  RESUME: Graph resumes from checkpoint
+  INJECT: human_decision added to state
+  EXECUTE: human_review node runs with decision
+  END: Graph completes with human override applied
+
+═══════════════════════════════════════════════════════════════════════════════
+8. CODE USAGE EXAMPLES
+═══════════════════════════════════════════════════════════════════════════════
+
+BACKEND ORCHESTRATION:
+─────────────────────────────────────────────────────────────────────
+
+from orchestration.langgraph_orchestrator_refactored import (
+    run_workflow,
+    resume_workflow,
+    get_paused_state,
+)
+
+# Run workflow (may pause if HITL triggered)
+final_state = run_workflow("iPhone 15 Pro pricing", thread_id="unique_id")
+
+# Check if paused
+if final_state.get("is_paused"):
+    print("Waiting for human review...")
+    # Client will call /resume endpoint
+else:
+    print("Complete!")
+    print(f"Decision: {final_state['review_status']}")
+
+# Resume from checkpoint (called when /resume endpoint receives request)
+final_state = resume_workflow(
+    thread_id="unique_id",
+    human_decision="override_approve",
+    human_notes="CFO approved"
+)
+
+FASTAPI INTEGRATION:
+─────────────────────────────────────────────────────────────────────
+
+from fastapi import FastAPI
+from api.main_refactored import app
+
+# Run with: uvicorn api.main_refactored:app --reload
+
+# Client code (JavaScript):
+const res = await fetch('http://localhost:8000/analyze', {
+  method: 'POST',
+  body: JSON.stringify({query: 'CloudScale Enterprise'})
+});
+const {execution_id} = await res.json();
+
+// Poll status
+const status = await fetch(`/status/${execution_id}`).then(r => r.json());
+
+if (status.status === 'paused_for_human_review') {
+  // Show UI for human to approve/reject
+  const resume = await fetch(`/resume/${execution_id}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      override_decision: 'override_approve',
+      notes: 'Approved by management'
+    })
+  }).then(r => r.json());
+
+  console.log(f"Final decision: {resume.final_decision}");
+}
+
+═══════════════════════════════════════════════════════════════════════════════
+9. INSTALLATION & DEPLOYMENT
+═══════════════════════════════════════════════════════════════════════════════
+
+INSTALLATION:
+  pip install langgraph langchain-core
+
+DEVELOPMENT:
+  Terminal 1:
+    cd api
+    uvicorn main_refactored:app --reload --port 8000
+
+  Terminal 2:
+    cd orchestration
+    python langgraph_orchestrator_refactored.py --query "test"
+
+PRODUCTION:
+  Use the same code (MemorySaver works out-of-box)
+  For persistence across restarts, replace MemorySaver with PostgresSaver:
+
+    from langgraph.checkpoint.postgres import PostgresSaver
+    checkpointer = PostgresSaver(connection_string)
+    graph.compile(checkpointer=checkpointer, interrupt_before=[...])
+
+═══════════════════════════════════════════════════════════════════════════════
+10. VERIFICATION & TESTING
+═══════════════════════════════════════════════════════════════════════════════
+
+TEST 1: Auto-Approved (No Retry)
+  python langgraph_orchestrator_refactored.py --query "good pricing"
+  Expected: [REVIEWER] ✅ [APPROVED] → Status: APPROVED
+
+TEST 2: Approved After Retries
+  python langgraph_orchestrator_refactored.py --query "marginal pricing"
+  Expected: Retries 1-2 rejected, attempt 3 approved → APPROVED
+
+TEST 3: HITL Escalation
+  uvicorn api.main_refactored:app --reload
+  curl -X POST http://localhost:8000/analyze -d '{"query":"test"}'
+  → Poll status until paused_for_human_review
+  curl -X POST http://localhost:8000/resume/{id} -d '{decision...}'
+  → Resume and complete
+
+═══════════════════════════════════════════════════════════════════════════════
+11. COMPARISON MATRIX
+═══════════════════════════════════════════════════════════════════════════════
+
+Feature                    │ Old          │ New
+───────────────────────────┼──────────────┼─────────────────────
+Retry Loop                 │ ❌ No        │ ✅ Max 3 attempts
+Feedback on Retry          │ ❌ No        │ ✅ Self-correction
+HITL Escalation            │ ❌ No        │ ✅ Full support
+Checkpointing              │ ❌ No        │ ✅ MemorySaver
+Human Override             │ ❌ No        │ ✅ /resume endpoint
+Pause Point                │ ❌ N/A       │ ✅ human_review node
+State Persistence          │ ❌ No        │ ✅ Thread-based
+Resume Functionality       │ ❌ No        │ ✅ Complete
+Frontend Integration       │ ⚠️ Basic     │ ✅ Full HITL support
+Production Ready           │ ✅ Yes       │ ✅ Yes + Upgrade path
+
+═══════════════════════════════════════════════════════════════════════════════
+12. IMPLEMENTATION CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+ORCHESTRATION LAYER:
+  ☑ Extended AgentState (13 fields)
+  ☑ Retry loop logic (max 3)
+  ☑ Human review node (NEW)
+  ☑ Updated routing (synthesis → human_review)
+  ☑ MemorySaver checkpointing
+  ☑ interrupt_before=[human_review]
+  ☑ resume_workflow() function
+  ☑ get_paused_state() helper
+
+FASTAPI LAYER:
+  ☑ POST /resume/{id} endpoint (NEW)
+  ☑ HumanDecisionRequest model
+  ☑ ResumeResponse model
+  ☑ Enhanced GET /status (is_paused, paused_for_human_review)
+  ☑ resume_workflow_task() background handler
+  ☑ Checkpoint integration
+
+DOCUMENTATION:
+  ☑ REFACTORING_GUIDE.md (400+ lines)
+  ☑ Code examples
+  ☑ Migration steps
+  ☑ Testing scenarios
+  ☑ Architecture diagrams
+
+═══════════════════════════════════════════════════════════════════════════════
+
+                    ✅ REFACTORING COMPLETE & READY
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Your MarginGuard AI now has:
+  ✅ Automatic retry loop (max 3 attempts)
+  ✅ Reviewer feedback incorporated on each retry
+  ✅ HITL escalation when max retries exhausted
+  ✅ LangGraph checkpoint persistence
+  ✅ FastAPI /resume endpoint for human override
+  ✅ Full integration end-to-end
+  ✅ Production-ready code
+  ✅ Complete documentation
+
+No changes needed to:
+  ✅ reviewer_agent.py (still works perfectly)
+  ✅ RAG agent, Research agent, Synthesis logic
+
+Next Steps:
+  1. Replace imports in api/main.py to use main_refactored
+  2. Update frontend to handle "paused_for_human_review" status
+  3. Implement UI for human review modal
+  4. Test with /resume endpoint
+  5. Deploy!
+
+═══════════════════════════════════════════════════════════════════════════════

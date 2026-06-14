@@ -20,7 +20,7 @@ const MainViewport: React.FC<MainViewportProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState('overview');
 
-  if (!data?.data && !isLoading) {
+  if (!data && !isLoading) {
     return (
       <div className="main-viewport">
         <div className="empty-state-container">
