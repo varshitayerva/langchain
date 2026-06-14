@@ -365,6 +365,165 @@
   color: #c62828;
 }
 
+.approval-badge.rejected {
+  background-color: #ffcccc;
+  color: #d32f2f;
+}
+
+/* Approval Banner */
+.approval-banner {
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  border-left: 4px solid #4caf50;
+  padding: 20px;
+  border-radius: 4px;
+  margin-bottom: 30px;
+}
+
+.approval-banner h2 {
+  margin: 0 0 10px 0;
+  color: #2e7d32;
+  font-size: 20px;
+}
+
+.approval-banner p {
+  margin: 0;
+  color: #558b2f;
+  font-size: 14px;
+}
+
+/* Rejection Banner */
+.rejection-banner {
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+  border-left: 4px solid #d32f2f;
+  padding: 20px;
+  border-radius: 4px;
+  margin-bottom: 30px;
+}
+
+.rejection-banner h2 {
+  margin: 0 0 10px 0;
+  color: #d32f2f;
+  font-size: 20px;
+}
+
+.rejection-banner p {
+  margin: 0;
+  color: #c62828;
+  font-size: 14px;
+}
+
+/* Human Notes Section */
+.human-notes-section {
+  background-color: #f0f7ff;
+  border-left: 4px solid #0066cc;
+  padding: 20px;
+  border-radius: 4px;
+  margin-bottom: 30px;
+}
+
+.human-notes-section h3 {
+  margin: 0 0 15px 0;
+  color: #0066cc;
+  font-size: 16px;
+}
+
+.notes-box {
+  background-color: white;
+  padding: 15px;
+  border-radius: 4px;
+  border: 1px solid #e0e7ff;
+}
+
+.notes-box p {
+  margin: 0;
+  color: #333;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Rejection Summary Section */
+.rejection-summary {
+  background-color: #fff3cd;
+  border-left: 4px solid #ff9800;
+  padding: 20px;
+  border-radius: 4px;
+  margin-bottom: 30px;
+}
+
+.rejection-summary h3 {
+  margin: 0 0 15px 0;
+  color: #e65100;
+  font-size: 16px;
+}
+
+.rejection-box {
+  background-color: white;
+  padding: 15px;
+  border-radius: 4px;
+  border: 1px solid #ffe0b2;
+}
+
+.rejection-box p {
+  margin: 0;
+  color: #333;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Rejection Notice */
+.rejection-notice {
+  background-color: #f5f5f5;
+  padding: 20px;
+  border-radius: 4px;
+  margin-bottom: 30px;
+  border: 1px solid #ddd;
+}
+
+.rejection-notice h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.rejection-notice h4 {
+  margin: 15px 0 10px 0;
+  color: #333;
+  font-size: 14px;
+}
+
+.notice-content p {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 15px 0;
+}
+
+.notice-content ol {
+  padding-left: 20px;
+  color: #666;
+  font-size: 14px;
+}
+
+.notice-content li {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+/* Approval Status Rejected */
+.approval-status-rejected {
+  background-color: #fee;
+  padding: 20px;
+  border-radius: 4px;
+  border: 1px solid #fcc;
+}
+
+.approval-status-rejected p {
+  margin: 10px 0 0 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 .report-actions {
   display: flex;
   gap: 10px;
