@@ -1,7 +1,0 @@
-{
-  "query": "iphone 15",
-  "review_status": "rejected",
-  "retry_count": 3,
-  "draft_report": "# Market Position & Pricing Strategy Report (Retry 2/3)\n\n## Executive Summary\niPhone 15 (HITL Demo) is competitively positioned against Unknown.\nOur pricing maintains healthy margins while remaining market-competitive.\n\n## Market Analysis\nUnknown is priced at Unknown/mo.\nOur current positioning at $300.00/mo allows us to compete effectively.\n\n## Recommended Action\nMaintain price at $300.00/mo with margin protection.\n\n## DATA SUMMARY MATRIX\nTARGET_PRODUCT_SKU: IPHONE15-DEMO\nTARGET_PRODUCT_NAME: iPhone 15 (HITL Demo)\nINTERNAL_BASE_COST: $200.00\nINTERNAL_MARGIN_FLOOR: 950.0\nLIVE_COMPETITOR_NAME: Unknown\nLIVE_COMPETITOR_PRICE_NORMALIZED: Unknown\nFINAL_RECOMMENDED_PRICE: $300.00\nSTRATEGIC_ACTION_PLAN_INCLUDED: TRUE\n\n## Reviewer Feedback (Applied in Retry 2)\n[HITL DEMO] Price $300.00 does not meet margin floor $950.00. Current margin: $-650.00. IMPOSSIBLE TO APPROVE. Requires human review.\n",
-  "review_feedback": "[HITL DEMO] Price $300.00 does not meet margin floor $950.00. Current margin: $-650.00. IMPOSSIBLE TO APPROVE. Requires human review."
-}
