@@ -28,13 +28,6 @@ const SEED_PRODUCTS: Product[] = [
   { name: 'Apple Watch Series 9', category: 'Wearables', price: 399 },
 ];
 
-interface HITLModalState {
-  show: boolean;
-  executionId: string;
-  retryCount: number;
-  reviewStatus: string | null;
-}
-
 const ProductQuerySection: React.FC<ProductQuerySectionProps> = ({
   policyLoaded,
   isLoading,
@@ -47,9 +40,6 @@ const ProductQuerySection: React.FC<ProductQuerySectionProps> = ({
   const [autocompleteOpen, setAutocompleteOpen] = useState(false);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [hitlModal, setHitlModal] = useState<HITLModalState>({ show: false, executionId: '', retryCount: 0, reviewStatus: null });
-  const [hitlNotes, setHitlNotes] = useState('');
-  const [hitlApproving, setHitlApproving] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('recentSearches');
@@ -87,81 +77,6 @@ const ProductQuerySection: React.FC<ProductQuerySectionProps> = ({
     localStorage.setItem('recentSearches', JSON.stringify(updated));
   };
 
-  const handleHitlApprove = async () => {
-    if (!hitlNotes.trim()) {
-      alert('Please provide notes for your decision');
-      return;
-    }
-
-    setHitlApproving(true);
-
-    try {
-      const timestamp = new Date().toLocaleTimeString();
-      addLog(`[${timestamp}] 🔄 Resuming workflow with human approval...`);
-
-      const resumeResponse = await axios.post(
-        `http://localhost:8000/analyze/resume/${hitlModal.executionId}`,
-        {
-          override_decision: 'override_approve',
-          notes: hitlNotes,
-        }
-      );
-
-      console.log('Resume response:', resumeResponse.data);
-      addLog(`[${timestamp}] ✓ Workflow resumed with approval`);
-
-      // Fetch final result
-      const resultResponse = await axios.get(
-        `http://localhost:8000/result/${hitlModal.executionId}`
-      );
-
-      console.log('Result response:', resultResponse.data);
-      onAnalysisStart(resultResponse.data, hitlModal.executionId);
-      setHitlModal({ show: false, executionId: '', retryCount: 0, reviewStatus: null });
-      setHitlNotes('');
-    } catch (error: any) {
-      console.error('HITL approval error:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
-      alert(`Failed to resume workflow: ${error.response?.data?.detail || error.message}`);
-    } finally {
-      setHitlApproving(false);
-    }
-  };
-
-  const handleHitlReject = async () => {
-    if (!hitlNotes.trim()) {
-      alert('Please provide notes for your decision');
-      return;
-    }
-
-    setHitlApproving(true);
-
-    try {
-      const timestamp = new Date().toLocaleTimeString();
-      addLog(`[${timestamp}] 🔄 Resuming workflow with human rejection...`);
-
-      const resumeResponse = await axios.post(
-        `http://localhost:8000/analyze/resume/${hitlModal.executionId}`,
-        {
-          override_decision: 'override_reject',
-          notes: hitlNotes,
-        }
-      );
-
-      addLog(`[${timestamp}] ✗ Workflow rejected by human reviewer`);
-
-      setHitlModal({ show: false, executionId: '', retryCount: 0, reviewStatus: null });
-      setHitlNotes('');
-      onLoadingChange(false);
-    } catch (error) {
-      console.error('HITL rejection error:', error);
-      alert('Failed to process rejection. Please try again.');
-    } finally {
-      setHitlApproving(false);
-    }
-  };
-
   const handleAnalyzeProduct = async () => {
     if (!query.trim()) {
       alert('Please enter a product name');
@@ -176,15 +91,19 @@ const ProductQuerySection: React.FC<ProductQuerySectionProps> = ({
     saveSearch(query);
     onLoadingChange(true);
     addLog(`[${new Date().toLocaleTimeString()}] Starting analysis for: ${query}`);
+    addLog(`[${new Date().toLocaleTimeString()}] ○ RAG Retrieval`);
 
     try {
-      const response = await axios.get(`http://localhost:8000/analyze?product=${encodeURIComponent(query)}`);
+      const response = await axios.get('http://localhost:8000/analyze', {
+        params: { product: query },
+      });
 
       const executionId = response.data.execution_id;
       addLog(`[${new Date().toLocaleTimeString()}] Execution ID: ${executionId}`);
 
       // Poll for status
       let completed = false;
+      let lastStep = 0;
       let pollCount = 0;
       const maxPolls = 120; // 2 minutes max
 
@@ -193,39 +112,48 @@ const ProductQuerySection: React.FC<ProductQuerySectionProps> = ({
         pollCount++;
 
         try {
-          const statusResponse = await axios.get(`http://localhost:8000/status/${executionId}`);
+          const statusResponse = await axios.get('http://localhost:8000/status', {
+            params: { id: executionId },
+          });
 
-          const { status, is_paused, retry_count, review_status } = statusResponse.data;
+          const { status, step, message } = statusResponse.data;
           const timestamp = new Date().toLocaleTimeString();
 
-          if (status === 'paused_for_human_review') {
-            completed = true;
-            addLog(`[${timestamp}] ⏸ Analysis paused - Awaiting human review (${retry_count} retries attempted)`);
-            addLog(`[${timestamp}] Last status: ${review_status}`);
+          if (step !== lastStep) {
+            lastStep = step;
+            onStepChange(step);
 
-            // Stop the loader spinner
-            onLoadingChange(false);
+            const steps = [
+              'RAG Retrieval',
+              'Research Agent',
+              'Synthesis',
+              'Review and Approval',
+            ];
+            if (step > 0 && step <= 4) {
+              addLog(
+                `[${timestamp}] ⟳ ${steps[step - 1]} (${step}/4)`
+              );
+            }
+          }
 
-            // Show HITL modal
-            setHitlModal({
-              show: true,
-              executionId,
-              retryCount: retry_count,
-              reviewStatus: review_status,
-            });
-            return; // Stop polling
-          } else if (status === 'completed') {
+          if (message) {
+            addLog(`[${timestamp}]   → ${message}`);
+          }
+
+          if (status === 'completed') {
             completed = true;
             addLog(`[${timestamp}] ✓ Analysis Complete`);
 
-            const resultResponse = await axios.get(`http://localhost:8000/result/${executionId}`);
+            const resultResponse = await axios.get('http://localhost:8000/result', {
+              params: { id: executionId },
+            });
 
             console.log('Result response:', resultResponse.data);
             onAnalysisStart(resultResponse.data, executionId);
-          } else if (status === 'error') {
+          } else if (status === 'failed') {
             completed = true;
-            addLog(`[${timestamp}] ✗ Analysis Error`);
-            alert('Analysis encountered an error. Please try again.');
+            addLog(`[${timestamp}] ✗ Analysis Failed`);
+            alert('Analysis failed. Please try again.');
           }
         } catch (error) {
           console.error('Status check error:', error);
@@ -248,9 +176,7 @@ const ProductQuerySection: React.FC<ProductQuerySectionProps> = ({
     <div className="product-query-section">
       <label className="section-label">Product Query</label>
       <div className="input-group">
-        <label htmlFor="product-query-input" className="sr-only">Product Query</label>
         <input
-          id="product-query-input"
           type="text"
           className="product-input"
           placeholder="e.g., AirPods Pro"
@@ -258,7 +184,6 @@ const ProductQuerySection: React.FC<ProductQuerySectionProps> = ({
           onChange={handleQueryChange}
           onFocus={() => query && setAutocompleteOpen(true)}
           disabled={isLoading}
-          title="Enter a product name to analyze"
         />
         {autocompleteOpen && filteredProducts.length > 0 && (
           <div className="autocomplete-dropdown">
@@ -306,55 +231,6 @@ const ProductQuerySection: React.FC<ProductQuerySectionProps> = ({
                 {search}
               </button>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* HITL Modal */}
-      {hitlModal.show && (
-        <div className="hitl-modal-overlay">
-          <div className="hitl-modal">
-            <div className="hitl-modal-header">
-              <h3>⏸ Human Review Required</h3>
-              <p>The pricing report was rejected {hitlModal.retryCount} times. Please review and make a final decision.</p>
-            </div>
-
-            <div className="hitl-modal-content">
-              <p className="hitl-info">
-                <strong>Status:</strong> {hitlModal.reviewStatus}
-              </p>
-              <p className="hitl-info">
-                <strong>Retries:</strong> {hitlModal.retryCount}/3
-              </p>
-
-              <label htmlFor="hitl-notes-textarea" className="hitl-label">Your Decision Notes:</label>
-              <textarea
-                id="hitl-notes-textarea"
-                className="hitl-textarea"
-                value={hitlNotes}
-                onChange={(e) => setHitlNotes(e.target.value)}
-                placeholder="Provide justification for your decision..."
-                disabled={hitlApproving}
-                title="Enter your justification for approving or rejecting the report"
-              />
-            </div>
-
-            <div className="hitl-modal-footer">
-              <button
-                className="btn-hitl-approve"
-                onClick={handleHitlApprove}
-                disabled={hitlApproving || !hitlNotes.trim()}
-              >
-                {hitlApproving ? 'Processing...' : '✓ Approve'}
-              </button>
-              <button
-                className="btn-hitl-reject"
-                onClick={handleHitlReject}
-                disabled={hitlApproving || !hitlNotes.trim()}
-              >
-                {hitlApproving ? 'Processing...' : '✗ Reject'}
-              </button>
-            </div>
           </div>
         </div>
       )}

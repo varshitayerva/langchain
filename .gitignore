@@ -60,6 +60,3 @@ Thumbs.db
 # Misc
 *.tmp
 .cache/
-
-*.txt
-*.md

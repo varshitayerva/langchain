@@ -1,7 +1,0 @@
-{
-  "query": "iphone 15",
-  "review_status": "rejected",
-  "retry_count": 3,
-  "draft_report": "# Market Position & Pricing Strategy Report (Retry 2/3)\n\n## Executive Summary\nProduct is competitively positioned against Unknown.\nOur pricing maintains healthy margins while remaining market-competitive.\n\n## Market Analysis\nUnknown is priced at Unknown/mo.\nOur current positioning at $0.00/mo allows us to compete effectively.\n\n## Recommended Action\nMaintain price at $0.00/mo with margin protection.\n\n## DATA SUMMARY MATRIX\nTARGET_PRODUCT_SKU: UNKNOWN\nTARGET_PRODUCT_NAME: Unknown\nINTERNAL_BASE_COST: $0.00\nINTERNAL_MARGIN_FLOOR: Unknown\nLIVE_COMPETITOR_NAME: Unknown\nLIVE_COMPETITOR_PRICE_NORMALIZED: Unknown\nFINAL_RECOMMENDED_PRICE: $0.00\nSTRATEGIC_ACTION_PLAN_INCLUDED: TRUE\n\n## Reviewer Feedback (Applied in Retry 2)\nPricing does not meet margin floor requirements. Human review needed.\n",
-  "review_feedback": "Pricing does not meet margin floor requirements. Human review needed."
-}

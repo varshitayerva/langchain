@@ -30,38 +30,8 @@ const App: React.FC = () => {
     setPolicy(policyData);
   }, []);
 
-  const handleAnalysisStart = useCallback((data: any, id: string) => {
-    // Normalize data structure to match what tabs expect
-    const normalizedData: AnalysisData = {
-      status: data.status || 'success',
-      data: {
-        product_query: data.query || 'Unknown',
-        rag_output: {
-          draft_report: data.draft_report || '',
-          review_status: data.review_status || 'approved',
-          retry_count: data.retry_count || 0,
-          human_decision: data.human_decision || null,
-          human_notes: data.human_notes || null,
-        },
-        research_results: [
-          {
-            competitor_name: 'Competitor A',
-            price_normalized: 999,
-            feature_parity: 85,
-            margin_feasible: true,
-            source: 'Market research data',
-          },
-          {
-            competitor_name: 'Competitor B',
-            price_normalized: 899,
-            feature_parity: 78,
-            margin_feasible: true,
-            source: 'Market research data',
-          },
-        ],
-      },
-    };
-    setAnalysisData(normalizedData);
+  const handleAnalysisStart = useCallback((data: AnalysisData, id: string) => {
+    setAnalysisData(data);
     setExecutionId(id);
   }, []);
 
